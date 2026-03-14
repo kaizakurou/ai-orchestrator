@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>AI Orchestrator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   CSS RESET & VARIABLES
+   ═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Dark theme - deep midnight */
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-card: #1a1a25;
+  --bg-card-hover: #22222f;
+  --bg-input: #15151f;
+  --bg-overlay: rgba(10, 10, 15, 0.92);
+
+  --text-primary: #e8e8ed;
+  --text-secondary: #8888a0;
+  --text-muted: #55556a;
+  --text-inverse: #0a0a0f;
+
+  --accent: #6c5ce7;
+  --accent-glow: rgba(108, 92, 231, 0.15);
+  --accent-hover: #7d6ff0;
+
+  --chatgpt: #10a37f;
+  --chatgpt-bg: rgba(16, 163, 127, 0.08);
+  --chatgpt-border: rgba(16, 163, 127, 0.25);
+
+  --claude: #d4a574;
+  --claude-bg: rgba(212, 165, 116, 0.08);
+  --claude-border: rgba(212, 165, 116, 0.25);
+
+  --gemini: #4285f4;
+  --gemini-bg: rgba(66, 133, 244, 0.08);
+  --gemini-border: rgba(66, 133, 244, 0.25);
+
+  --status-draft: #55556a;
+  --status-progress: #f0a030;
+  --status-done: #10a37f;
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-focus: rgba(108, 92, 231, 0.5);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+
+  --font-display: 'DM Sans', 'Noto Sans JP', sans-serif;
+  --font-body: 'Noto Sans JP', 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ═══════════════════════════════════════════
+   APP SHELL
+   ═══════════════════════════════════════════ */
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Header ── */
+.app-header {
+  position: relative;
+  z-index: 100;
+  padding: calc(var(--safe-top) + 12px) 20px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  flex-shrink: 0;
+}
+
+.app-header .back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.app-header .back-btn:active {
+  background: var(--bg-card-hover);
+  transform: scale(0.92);
+}
+
+.app-header .header-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.app-header .header-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Scrollable content area ── */
+.screen-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--safe-bottom) + 20px);
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN TRANSITIONS
+   ═══════════════════════════════════════════ */
+.screen { display: none; height: 100%; flex-direction: column; }
+.screen.active { display: flex; animation: fadeIn 0.25s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════
+   COMMON COMPONENTS
+   ═══════════════════════════════════════════ */
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.btn:active { transform: scale(0.96); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:active { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:active { background: var(--bg-card-hover); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  padding: 10px 16px;
+}
+
+.btn-full { width: 100%; }
+
+.btn-copy {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-copy.copied {
+  background: var(--chatgpt);
+  color: #fff;
+  border-color: var(--chatgpt);
+}
+
+/* ── Inputs ── */
+.input-group { margin-bottom: 20px; }
+
+.input-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.input-field {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+textarea.input-field {
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.card:active {
+  background: var(--bg-card-hover);
+  transform: scale(0.98);
+}
+
+/* ── Status badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.badge-draft { background: rgba(85,85,106,0.15); color: var(--status-draft); }
+.badge-progress { background: rgba(240,160,48,0.12); color: var(--status-progress); }
+.badge-done { background: rgba(16,163,127,0.12); color: var(--status-done); }
+
+/* ── AI color labels ── */
+.ai-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ai-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ai-chatgpt .ai-dot { background: var(--chatgpt); }
+.ai-claude .ai-dot { background: var(--claude); }
+.ai-gemini .ai-dot { background: var(--gemini); }
+
+.ai-chatgpt { color: var(--chatgpt); }
+.ai-claude { color: var(--claude); }
+.ai-gemini { color: var(--gemini); }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 24px);
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  z-index: 1000;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Prompt display box ── */
+.prompt-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+/* ── Step indicator ── */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 20px 0;
+}
+
+.step-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  transition: all 0.3s;
+}
+
+.step-circle.pending {
+  background: transparent;
+  border: 2px solid var(--text-muted);
+  color: var(--text-muted);
+}
+
+.step-circle.ready {
+  background: transparent;
+  color: currentColor;
+}
+
+.step-circle.done {
+  color: #fff;
+}
+
+.step-node.chatgpt .step-circle.ready { border: 2px solid var(--chatgpt); color: var(--chatgpt); }
+.step-node.chatgpt .step-circle.done { background: var(--chatgpt); border: 2px solid var(--chatgpt); }
+.step-node.claude .step-circle.ready { border: 2px solid var(--claude); color: var(--claude); }
+.step-node.claude .step-circle.done { background: var(--claude); border: 2px solid var(--claude); }
+.step-node.gemini .step-circle.ready { border: 2px solid var(--gemini); color: var(--gemini); }
+.step-node.gemini .step-circle.done { background: var(--gemini); border: 2px solid var(--gemini); }
+
+.step-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.step-node.active .step-label { color: var(--text-secondary); }
+
+.step-line {
+  width: 40px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+  margin-bottom: 26px;
+  transition: background 0.3s;
+}
+
+.step-line.done { background: var(--text-muted); }
+
+/* ── Section ── */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+/* ── Workflow step card ── */
+.wf-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wf-card:active {
+  background: var(--bg-card-hover);
+  transform: scale(0.98);
+}
+
+.wf-card .wf-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.wf-card.chatgpt .wf-icon { background: var(--chatgpt-bg); color: var(--chatgpt); border: 1px solid var(--chatgpt-border); }
+.wf-card.claude .wf-icon { background: var(--claude-bg); color: var(--claude); border: 1px solid var(--claude-border); }
+.wf-card.gemini .wf-icon { background: var(--gemini-bg); color: var(--gemini); border: 1px solid var(--gemini-border); }
+
+.wf-card .wf-info { flex: 1; min-width: 0; }
+.wf-card .wf-name { font-weight: 600; font-size: 15px; }
+.wf-card .wf-status { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+.wf-card .wf-arrow {
+  color: var(--text-muted);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* ── Summary tab ── */
+.summary-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.summary-tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.summary-tab.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.summary-content {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 24px);
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 24px;
+  box-shadow: 0 4px 24px rgba(108, 92, 231, 0.4);
+  cursor: pointer;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.fab:active { transform: scale(0.9); background: var(--accent-hover); }
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center;
+  padding: 60px 32px;
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ── Project card in list ── */
+.project-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.project-card:active {
+  background: var(--bg-card-hover);
+  transform: scale(0.98);
+}
+
+.project-card .pc-title {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.project-card .pc-question {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.project-card .pc-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.project-card .pc-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Delete button on project card ── */
+.project-card .pc-delete {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.project-card .pc-delete:active {
+  background: rgba(255, 80, 80, 0.15);
+  color: #ff5050;
+}
+
+/* ── Bottom action bar ── */
+.bottom-bar {
+  padding: 16px 20px calc(var(--safe-bottom) + 16px);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Logo ── */
+.logo-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--chatgpt), var(--claude));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── External links row ── */
+.external-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ext-link {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.ext-link:active { background: var(--bg-card-hover); }
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════ */
+.stagger > * {
+  animation: slideUp 0.35s ease both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.03s; }
+.stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger > *:nth-child(3) { animation-delay: 0.09s; }
+.stagger > *:nth-child(4) { animation-delay: 0.12s; }
+.stagger > *:nth-child(5) { animation-delay: 0.15s; }
+.stagger > *:nth-child(6) { animation-delay: 0.18s; }
+
+/* ═══════════════════════════════════════════
+   UTILITY
+   ═══════════════════════════════════════════ */
+.px { padding-left: 20px; padding-right: 20px; }
+.pt-16 { padding-top: 16px; }
+.mt-12 { margin-top: 12px; }
+.mt-20 { margin-top: 20px; }
+.mb-8 { margin-bottom: 8px; }
+.gap-8 { gap: 8px; }
+.flex-row { display: flex; align-items: center; }
+.flex-1 { flex: 1; }
+.text-center { text-align: center; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ═══════════════════════════════════════
+       S01: HOME (Project List)
+       ═══════════════════════════════════════ -->
+  <div id="screen-home" class="screen active">
+    <div class="app-header">
+      <span class="logo-text">AI Orchestrator</span>
+    </div>
+    <div class="screen-content px pt-16">
+      <div id="project-list" class="stagger"></div>
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">◇</div>
+        <p>まだ案件がありません<br>＋ボタンから新しいテーマを作成してください</p>
+      </div>
+    </div>
+    <button class="fab" onclick="navigate('new')" aria-label="新規作成">＋</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       S02: NEW PROJECT
+       ═══════════════════════════════════════ -->
+  <div id="screen-new" class="screen">
+    <div class="app-header">
+      <button class="back-btn" onclick="navigate('home')">←</button>
+      <div class="header-title">新しいテーマ</div>
+    </div>
+    <div class="screen-content px pt-16">
+      <div class="input-group">
+        <label>テーマ名</label>
+        <input type="text" id="inp-theme" class="input-field" placeholder="例: 副業の始め方、転職の判断基準">
+      </div>
+      <div class="input-group">
+        <label>最初の質問</label>
+        <textarea id="inp-question" class="input-field" placeholder="このテーマについてAIに聞きたいことを入力してください" rows="5"></textarea>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <button class="btn btn-primary btn-full" onclick="createProject()">開始する</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       S03: WORKFLOW
+       ═══════════════════════════════════════ -->
+  <div id="screen-workflow" class="screen">
+    <div class="app-header">
+      <button class="back-btn" onclick="navigate('home')">←</button>
+      <div>
+        <div class="header-title" id="wf-title"></div>
+        <div class="header-subtitle" id="wf-subtitle"></div>
+      </div>
+    </div>
+    <div class="screen-content px pt-16">
+      <!-- Step indicator -->
+      <div class="step-indicator" id="step-indicator"></div>
+
+      <!-- Step cards -->
+      <div class="section-title">ステップ</div>
+      <div id="wf-steps" class="stagger"></div>
+
+      <!-- Summary button -->
+      <div id="wf-summary-btn" class="mt-20 hidden">
+        <button class="btn btn-primary btn-full" onclick="navigateToSummary()">統合サマリーを見る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       S04: PROMPT VIEW
+       ═══════════════════════════════════════ -->
+  <div id="screen-prompt" class="screen">
+    <div class="app-header">
+      <button class="back-btn" onclick="navigateToWorkflow()">←</button>
+      <div>
+        <div class="header-title" id="prompt-title"></div>
+        <div class="header-subtitle">生成された質問文</div>
+      </div>
+    </div>
+    <div class="screen-content px pt-16">
+      <div class="prompt-box" id="prompt-text"></div>
+      <div class="mt-12">
+        <button class="btn btn-copy btn-full" id="btn-copy-prompt" onclick="copyPrompt()">
+          コピーする
+        </button>
+      </div>
+      <div class="external-links" id="external-links"></div>
+    </div>
+    <div class="bottom-bar">
+      <button class="btn btn-primary btn-full" onclick="navigateToAnswer()">回答を入力する →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       S05: ANSWER INPUT
+       ═══════════════════════════════════════ -->
+  <div id="screen-answer" class="screen">
+    <div class="app-header">
+      <button class="back-btn" onclick="navigateToPrompt()">←</button>
+      <div>
+        <div class="header-title" id="answer-title"></div>
+        <div class="header-subtitle">回答を貼り付けてください</div>
+      </div>
+    </div>
+    <div class="screen-content px pt-16">
+      <div class="input-group">
+        <label id="answer-label">回答</label>
+        <textarea id="inp-answer" class="input-field" placeholder="AIの回答をここに貼り付けてください" rows="12"></textarea>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <button class="btn btn-primary btn-full" onclick="saveAnswer()">保存して次へ →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       S06: SUMMARY
+       ═══════════════════════════════════════ -->
+  <div id="screen-summary" class="screen">
+    <div class="app-header">
+      <button class="back-btn" onclick="navigateToWorkflow()">←</button>
+      <div>
+        <div class="header-title">統合サマリー</div>
+        <div class="header-subtitle" id="summary-theme"></div>
+      </div>
+    </div>
+    <div class="screen-content px pt-16">
+      <div class="summary-tabs" id="summary-tabs">
+        <button class="summary-tab active" data-tab="chatgpt" onclick="switchTab('chatgpt')">ChatGPT</button>
+        <button class="summary-tab" data-tab="claude" onclick="switchTab('claude')">Claude</button>
+        <button class="summary-tab" data-tab="gemini" onclick="switchTab('gemini')">Gemini</button>
+      </div>
+      <div class="summary-content" id="summary-display"></div>
+
+      <div class="mt-20">
+        <div class="section-title">あなたの最終判断</div>
+        <textarea id="inp-memo" class="input-field" placeholder="3者の回答を踏まえた、あなた自身の結論を記録してください" rows="5"></textarea>
+      </div>
+    </div>
+    <div class="bottom-bar" style="display: flex; gap: 10px;">
+      <button class="btn btn-secondary flex-1" onclick="saveMemo()">メモを保存</button>
+      <button class="btn btn-primary flex-1" onclick="completeProject()">完了する</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATABASE (IndexedDB via lightweight wrapper)
+// ═══════════════════════════════════════════════════════════════
+const DB_NAME = 'ai_orchestrator_db';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('projects')) {
+        const ps = d.createObjectStore('projects', { keyPath: 'id' });
+        ps.createIndex('status', 'status');
+        ps.createIndex('updatedAt', 'updatedAt');
+      }
+      if (!d.objectStoreNames.contains('steps')) {
+        const ss = d.createObjectStore('steps', { keyPath: 'id' });
+        ss.createIndex('projectId', 'projectId');
+      }
+      if (!d.objectStoreNames.contains('summaries')) {
+        const su = d.createObjectStore('summaries', { keyPath: 'id' });
+        su.createIndex('projectId', 'projectId');
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbPut(store, data) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(data);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGet(store, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbDelete(store, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGetByIndex(store, indexName, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const idx = tx.objectStore(store).index(indexName);
+    const req = idx.getAll(value);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function uuid() {
+  return 'xxxx-xxxx-xxxx'.replace(/x/g, () => ((Math.random() * 16) | 0).toString(16));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEMPLATES
+// ═══════════════════════════════════════════════════════════════
+const TEMPLATES = {
+  chatgpt: (vars) => `以下のテーマについて質問します。
+
+テーマ: ${vars.theme}
+
+質問: ${vars.originalQuestion}
+
+回答にあたっては、以下の観点を含めてください。
+・結論（まず端的に）
+・根拠や理由（なぜそう言えるか）
+・注意点やリスク（見落としがちな点）
+・具体的な次のアクション（何をすればよいか）`,
+
+  claude: (vars) => `以下のテーマについて、別のAI（ChatGPT）に質問したところ、下記の回答を得ました。
+
+テーマ: ${vars.theme}
+元の質問: ${vars.originalQuestion}
+
+--- ChatGPTの回答 ここから ---
+${vars.chatgptAnswer}
+--- ChatGPTの回答 ここまで ---
+
+この回答を踏まえて、あなた（Claude）の立場から以下の観点で意見をください。
+
+1. ChatGPTの回答で同意できる点
+2. ChatGPTの回答で不十分・不正確だと思う点
+3. ChatGPTが触れていないが重要な観点
+4. あなた自身の結論と、その根拠`,
+
+  gemini: (vars) => `以下のテーマについて、2つのAIに順に質問しました。それぞれの回答を示しますので、第三者の視点から評価・統合してください。
+
+テーマ: ${vars.theme}
+元の質問: ${vars.originalQuestion}
+
+--- ChatGPTの回答 ここから ---
+${vars.chatgptAnswer}
+--- ChatGPTの回答 ここまで ---
+
+--- Claudeの回答 ここから ---
+${vars.claudeAnswer}
+--- Claudeの回答 ここまで ---
+
+以下の観点で回答してください。
+
+1. 両者が一致している点（信頼度が高い情報）
+2. 両者が食い違っている点（どちらが妥当か、理由も含めて）
+3. 両者とも見落としている重要な観点
+4. 3者の意見を統合した場合の最終的な結論案
+5. ユーザーが次に取るべきアクション`,
+};
+
+const AI_CONFIG = [
+  { key: 'chatgpt', name: 'ChatGPT', order: 1, template: 'chatgpt', url: 'https://chat.openai.com' },
+  { key: 'claude', name: 'Claude', order: 2, template: 'claude', url: 'https://claude.ai' },
+  { key: 'gemini', name: 'Gemini', order: 3, template: 'gemini', url: 'https://gemini.google.com' },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let currentProjectId = null;
+let currentStepOrder = null;
+let currentSummaryTab = 'chatgpt';
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+function navigate(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${screen}`).classList.add('active');
+
+  if (screen === 'home') {
+    currentProjectId = null;
+    currentStepOrder = null;
+    renderProjectList();
+  }
+}
+
+function navigateToWorkflow() {
+  navigate('workflow');
+  renderWorkflow();
+}
+
+function navigateToPrompt() {
+  navigate('prompt');
+  renderPrompt();
+}
+
+function navigateToAnswer() {
+  navigate('answer');
+  renderAnswer();
+}
+
+function navigateToSummary() {
+  navigate('summary');
+  renderSummary();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// S01: HOME - PROJECT LIST
+// ═══════════════════════════════════════════════════════════════
+async function renderProjectList() {
+  const projects = await dbGetAll('projects');
+  projects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+  const list = document.getElementById('project-list');
+  const empty = document.getElementById('empty-state');
+
+  if (projects.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+
+  const statusLabels = {
+    draft: ['下書き', 'badge-draft'],
+    in_progress: ['進行中', 'badge-progress'],
+    completed: ['完了', 'badge-done'],
+  };
+
+  list.innerHTML = projects.map(p => {
+    const [label, cls] = statusLabels[p.status] || ['不明', 'badge-draft'];
+    const date = new Date(p.updatedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="project-card" onclick="openProject('${p.id}')">
+        <div class="pc-title">${esc(p.title)}</div>
+        <div class="pc-question">${esc(p.originalQuestion)}</div>
+        <div class="pc-footer">
+          <span class="badge ${cls}">${label}</span>
+          <span class="pc-date">${date}</span>
+          <button class="pc-delete" onclick="event.stopPropagation(); deleteProject('${p.id}')" title="削除">✕</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openProject(id) {
+  currentProjectId = id;
+  navigateToWorkflow();
+}
+
+async function deleteProject(id) {
+  if (!confirm('この案件を削除しますか？')) return;
+  // Delete steps
+  const steps = await dbGetByIndex('steps', 'projectId', id);
+  for (const s of steps) await dbDelete('steps', s.id);
+  // Delete summaries
+  const sums = await dbGetByIndex('summaries', 'projectId', id);
+  for (const s of sums) await dbDelete('summaries', s.id);
+  // Delete project
+  await dbDelete('projects', id);
+  showToast('案件を削除しました');
+  renderProjectList();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// S02: CREATE PROJECT
+// ═══════════════════════════════════════════════════════════════
+async function createProject() {
+  const theme = document.getElementById('inp-theme').value.trim();
+  const question = document.getElementById('inp-question').value.trim();
+
+  if (!theme) { showToast('テーマ名を入力してください'); return; }
+  if (!question) { showToast('質問を入力してください'); return; }
+
+  const now = new Date().toISOString();
+  const projectId = uuid();
+
+  // Create project
+  const project = {
+    id: projectId,
+    title: theme,
+    originalQuestion: question,
+    status: 'in_progress',
+    currentStep: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await dbPut('projects', project);
+
+  // Create step 1 (ChatGPT)
+  const prompt = TEMPLATES.chatgpt({ theme, originalQuestion: question });
+  const step1 = {
+    id: uuid(),
+    projectId,
+    stepOrder: 1,
+    aiName: 'ChatGPT',
+    generatedPrompt: prompt,
+    answerText: '',
+    status: 'prompt_ready',
+    createdAt: now,
+    answeredAt: null,
+  };
+  await dbPut('steps', step1);
+
+  // Create placeholders for steps 2 & 3
+  for (const cfg of AI_CONFIG.slice(1)) {
+    await dbPut('steps', {
+      id: uuid(),
+      projectId,
+      stepOrder: cfg.order,
+      aiName: cfg.name,
+      generatedPrompt: '',
+      answerText: '',
+      status: 'pending',
+      createdAt: now,
+      answeredAt: null,
+    });
+  }
+
+  // Clear inputs
+  document.getElementById('inp-theme').value = '';
+  document.getElementById('inp-question').value = '';
+
+  currentProjectId = projectId;
+  navigateToWorkflow();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// S03: WORKFLOW
+// ═══════════════════════════════════════════════════════════════
+async function renderWorkflow() {
+  const project = await dbGet('projects', currentProjectId);
+  if (!project) return;
+
+  document.getElementById('wf-title').textContent = project.title;
+
+  const statusLabels = { draft: '下書き', in_progress: '進行中', completed: '完了' };
+  document.getElementById('wf-subtitle').textContent = statusLabels[project.status] || '';
+
+  const steps = await dbGetByIndex('steps', 'projectId', currentProjectId);
+  steps.sort((a, b) => a.stepOrder - b.stepOrder);
+
+  // Step indicator
+  const indicator = document.getElementById('step-indicator');
+  let indicatorHTML = '';
+  steps.forEach((step, i) => {
+    const cfg = AI_CONFIG[i];
+    const stateClass = step.status === 'answered' ? 'done' : step.status === 'prompt_ready' ? 'ready' : 'pending';
+    const isActive = step.status !== 'answered' && (i === 0 || steps[i-1].status === 'answered');
+
+    indicatorHTML += `
+      <div class="step-node ${cfg.key} ${isActive ? 'active' : ''}">
+        <div class="step-circle ${stateClass}">${i + 1}</div>
+        <div class="step-label">${cfg.name}</div>
+      </div>
+    `;
+    if (i < steps.length - 1) {
+      indicatorHTML += `<div class="step-line ${step.status === 'answered' ? 'done' : ''}"></div>`;
+    }
+  });
+  indicator.innerHTML = indicatorHTML;
+
+  // Step cards
+  const wfSteps = document.getElementById('wf-steps');
+  wfSteps.innerHTML = steps.map((step, i) => {
+    const cfg = AI_CONFIG[i];
+    let statusText = '';
+    let action = '';
+
+    if (step.status === 'answered') {
+      statusText = '✓ 回答保存済み';
+      action = `onclick="currentStepOrder=${step.stepOrder}; navigateToPrompt()"`;
+    } else if (step.status === 'prompt_ready') {
+      statusText = '質問文を確認 →';
+      action = `onclick="currentStepOrder=${step.stepOrder}; navigateToPrompt()"`;
+    } else {
+      statusText = '前のステップを完了してください';
+      action = '';
+    }
+
+    return `
+      <div class="wf-card ${cfg.key}" ${action} style="${step.status === 'pending' ? 'opacity: 0.4; cursor: default;' : ''}">
+        <div class="wf-icon">${i + 1}</div>
+        <div class="wf-info">
+          <div class="wf-name ai-${cfg.key}">${cfg.name}</div>
+          <div class="wf-status">${statusText}</div>
+        </div>
+        <div class="wf-arrow">${step.status !== 'pending' ? '›' : ''}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Summary button
+  const allDone = steps.every(s => s.status === 'answered');
+  document.getElementById('wf-summary-btn').classList.toggle('hidden', !allDone);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// S04: PROMPT VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderPrompt() {
+  const steps = await dbGetByIndex('steps', 'projectId', currentProjectId);
+  const step = steps.find(s => s.stepOrder === currentStepOrder);
+  if (!step) return;
+
+  const cfg = AI_CONFIG[currentStepOrder - 1];
+
+  document.getElementById('prompt-title').textContent = `${cfg.name}への質問文`;
+  document.getElementById('prompt-text').textContent = step.generatedPrompt;
+
+  // External links
+  document.getElementById('external-links').innerHTML = `
+    <a class="ext-link" href="${cfg.url}" target="_blank" rel="noopener">${cfg.name}を開く ↗</a>
+  `;
+}
+
+async function copyPrompt() {
+  const text = document.getElementById('prompt-text').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById('btn-copy-prompt');
+    btn.classList.add('copied');
+    btn.textContent = 'コピーしました ✓';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.textContent = 'コピーする';
+    }, 2000);
+  } catch (e) {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('コピーしました');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// S05: ANSWER INPUT
+// ═══════════════════════════════════════════════════════════════
+async function renderAnswer() {
+  const cfg = AI_CONFIG[currentStepOrder - 1];
+  document.getElementById('answer-title').textContent = `${cfg.name}の回答`;
+  document.getElementById('answer-label').textContent = `${cfg.name}の回答を貼り付け`;
+  document.getElementById('inp-answer').value = '';
+
+  // Pre-fill if already answered
+  const steps = await dbGetByIndex('steps', 'projectId', currentProjectId);
+  const step = steps.find(s => s.stepOrder === currentStepOrder);
+  if (step && step.answerText) {
+    document.getElementById('inp-answer').value = step.answerText;
+  }
+}
+
+async function saveAnswer() {
+  const answerText = document.getElementById('inp-answer').value.trim();
+  if (!answerText) { showToast('回答を入力してください'); return; }
+
+  const project = await dbGet('projects', currentProjectId);
+  const steps = await dbGetByIndex('steps', 'projectId', currentProjectId);
+  steps.sort((a, b) => a.stepOrder - b.stepOrder);
+
+  const currentStep = steps.find(s => s.stepOrder === currentStepOrder);
+  if (!currentStep) return;
+
+  // Save answer
+  currentStep.answerText = answerText;
+  currentStep.status = 'answered';
+  currentStep.answeredAt = new Date().toISOString();
+  await dbPut('steps', currentStep);
+
+  // Generate next step's prompt
+  const nextOrder = currentStepOrder + 1;
+  const nextStep = steps.find(s => s.stepOrder === nextOrder);
+
+  if (nextStep && nextStep.status === 'pending') {
+    const vars = {
+      theme: project.title,
+      originalQuestion: project.originalQuestion,
+      chatgptAnswer: steps.find(s => s.stepOrder === 1)?.answerText || '',
+      claudeAnswer: steps.find(s => s.stepOrder === 2)?.answerText || '',
+      geminiAnswer: steps.find(s => s.stepOrder === 3)?.answerText || '',
+    };
+
+    const nextCfg = AI_CONFIG[nextOrder - 1];
+    nextStep.generatedPrompt = TEMPLATES[nextCfg.template](vars);
+    nextStep.status = 'prompt_ready';
+    await dbPut('steps', nextStep);
+  }
+
+  // Update project
+  project.currentStep = Math.min(nextOrder, 4);
+  project.updatedAt = new Date().toISOString();
+  await dbPut('projects', project);
+
+  // If all steps done, create summary placeholder
+  const allDone = steps.every(s => s.status === 'answered' || s.stepOrder === currentStepOrder);
+  if (currentStepOrder === 3) {
+    const existingSums = await dbGetByIndex('summaries', 'projectId', currentProjectId);
+    if (existingSums.length === 0) {
+      await dbPut('summaries', {
+        id: uuid(),
+        projectId: currentProjectId,
+        userMemo: '',
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  showToast('回答を保存しました');
+  navigateToWorkflow();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// S06: SUMMARY
+// ═══════════════════════════════════════════════════════════════
+async function renderSummary() {
+  const project = await dbGet('projects', currentProjectId);
+  if (!project) return;
+
+  document.getElementById('summary-theme').textContent = project.title;
+
+  const steps = await dbGetByIndex('steps', 'projectId', currentProjectId);
+  steps.sort((a, b) => a.stepOrder - b.stepOrder);
+
+  // Load memo
+  const sums = await dbGetByIndex('summaries', 'projectId', currentProjectId);
+  if (sums.length > 0) {
+    document.getElementById('inp-memo').value = sums[0].userMemo || '';
+  }
+
+  currentSummaryTab = 'chatgpt';
+  updateSummaryTabs(steps);
+}
+
+function switchTab(tab) {
+  currentSummaryTab = tab;
+  dbGetByIndex('steps', 'projectId', currentProjectId).then(steps => {
+    steps.sort((a, b) => a.stepOrder - b.stepOrder);
+    updateSummaryTabs(steps);
+  });
+}
+
+function updateSummaryTabs(steps) {
+  // Update tab buttons
+  document.querySelectorAll('.summary-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === currentSummaryTab);
+  });
+
+  // Display content
+  const tabIndex = { chatgpt: 0, claude: 1, gemini: 2 };
+  const step = steps[tabIndex[currentSummaryTab]];
+  const display = document.getElementById('summary-display');
+
+  if (step && step.answerText) {
+    display.textContent = step.answerText;
+  } else {
+    display.textContent = '（まだ回答がありません）';
+  }
+}
+
+async function saveMemo() {
+  const memo = document.getElementById('inp-memo').value.trim();
+  const sums = await dbGetByIndex('summaries', 'projectId', currentProjectId);
+  if (sums.length > 0) {
+    sums[0].userMemo = memo;
+    await dbPut('summaries', sums[0]);
+    showToast('メモを保存しました');
+  }
+}
+
+async function completeProject() {
+  await saveMemo();
+  const project = await dbGet('projects', currentProjectId);
+  project.status = 'completed';
+  project.updatedAt = new Date().toISOString();
+  await dbPut('projects', project);
+  showToast('案件を完了しました');
+  navigate('home');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function esc(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+(async () => {
+  await openDB();
+  renderProjectList();
+})();
+
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
